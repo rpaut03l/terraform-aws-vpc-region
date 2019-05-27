@@ -13,3 +13,11 @@ resource "aws_vpc_peering_connection_accepter" "this" {
   vpc_peering_connection_id = local.incoming[count.index]
   auto_accept               = true
 }
+
+resource "aws_route" "peering" {
+  count = length(local.routes)
+
+  route_table_id            = local.routes[count.index].route_table_id
+  destination_cidr_block    = local.routes[count.index].destination_cidr_block
+  vpc_peering_connection_id = local.routes[count.index].vpc_peering_connection_id
+}

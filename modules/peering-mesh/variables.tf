@@ -41,4 +41,32 @@ locals {
     for source, m in var.other_region_connections : m[local.region_name]
     if source != local.region_name && ! contains(local.peers, source)
   ]
+
+  outgoing_connection_ids = tomap({
+    for c in aws_vpc_peering_connection.this : c.peer_region => c.id
+  })
+  incoming_connection_ids = tomap({
+    for source, m in var.other_region_connections : source => m[local.region_name]
+    if source != local.region_name && ! contains(local.peers, source)
+  })
+  all_connection_ids = merge(
+    local.incoming_connection_ids,
+    local.outgoing_connection_ids,
+  )
+
+  routes_per_table = concat(
+    [
+      for region, conn_id in local.all_connection_ids : {
+        destination_cidr_block    = var.region_vpc_networks[region].vpc.cidr_block
+        vpc_peering_connection_id = conn_id
+      }
+    ],
+  )
+  routes = [
+    for pair in setproduct(local.routes_per_table, local.region_route_table_ids) : {
+      route_table_id            = pair[1]
+      destination_cidr_block    = pair[0].destination_cidr_block
+      vpc_peering_connection_id = pair[0].vpc_peering_connection_id
+    }
+  ]
 }

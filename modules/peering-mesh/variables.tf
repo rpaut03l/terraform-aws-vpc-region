@@ -56,17 +56,25 @@ locals {
 
   routes_per_table = concat(
     [
-      for region, conn_id in local.all_connection_ids : {
+      for region, conn_id in local.incoming_connection_ids : {
+        destination_cidr_block    = var.region_vpc_networks[region].vpc.cidr_block
+        vpc_peering_connection_id = conn_id
+      }
+    ],
+    [
+      for region, conn_id in local.outgoing_connection_ids : {
         destination_cidr_block    = var.region_vpc_networks[region].vpc.cidr_block
         vpc_peering_connection_id = conn_id
       }
     ],
   )
-  routes = [
-    for pair in setproduct(local.routes_per_table, local.region_route_table_ids) : {
-      route_table_id            = pair[1]
-      destination_cidr_block    = pair[0].destination_cidr_block
-      vpc_peering_connection_id = pair[0].vpc_peering_connection_id
-    }
-  ]
+  routes = flatten([
+    for route in local.routes_per_table : [
+      for route_table_id in local.region_route_table_ids : {
+        route_table_id            = route_table_id
+        destination_cidr_block    = route.destination_cidr_block
+        vpc_peering_connection_id = route.vpc_peering_connection_id
+      }
+    ]
+  ])
 }
